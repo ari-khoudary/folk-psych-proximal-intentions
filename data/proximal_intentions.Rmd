@@ -1,0 +1,327 @@
+---
+title: "proximal intentions"
+author: "Maria"
+date: "6/23/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(tidyr)
+library(lme4)
+library(lmerTest)
+library(ggplot2)
+library(ggpubr)
+library(sjPlot)
+
+assignIntention <- function(x) {
+  ifelse(grepl('1', x), 'I',
+  ifelse(grepl('2', x), 'I',
+  ifelse(grepl('3', x), 'U',
+  ifelse(grepl('4', x), 'U', NA))))
+}
+
+assignLanguage_s1 <- function(x) {
+  ifelse(grepl('1', x), 'intended',
+  ifelse(grepl('3', x), 'intended',
+  ifelse(grepl('2', x), 'intentionally',
+  ifelse(grepl('4', x), 'intentionally', NA))))
+}
+
+assignLanguage_s2 <- function(x) {
+  ifelse(grepl('1', x), 'had_intention',
+  ifelse(grepl('3', x), 'had_intention',
+  ifelse(grepl('2', x), 'intentionally',
+  ifelse(grepl('4', x), 'intentionally', NA))))
+}
+
+assignScenario <- function(x) {
+  ifelse(grepl('A', x), 'Al',
+  ifelse(grepl('B', x), 'Beth',
+  ifelse(grepl('C', x), 'Carlos',
+  ifelse(grepl('D', x), 'Debby',
+  ifelse(grepl('E', x), 'Evan',
+  ifelse(grepl('F', x), 'Filomena',
+  ifelse(grepl('G', x), 'Greg',
+  ifelse(grepl('I', x), 'Ivan', NA))))))))
+}
+
+assignBin <- function(df) {
+  ifelse(df$rating == 1, 'Yes',
+  ifelse(df$rating==2, 'Yes', 
+  ifelse(df$rating==3, 'Yes',
+  ifelse(df$rating==5, 'No',
+  ifelse(df$rating==6, 'No',
+  ifelse(df$rating==7, 'No', NA))))))
+}
+```
+
+
+```{r study 1 load & tidy data}
+data_s1_all <- read.csv('data/study_1/s1_trimmed.csv')
+data_s1_all$condition <- ifelse(data_s1_all$Q6 == '', 2, 1)
+
+data_s1 <- data_s1_all %>%
+  unite(col = 'A1', c(Q6, Q64), sep='') %>% 
+  unite(col = 'A3', c(Q7, Q65), sep='') %>%
+  unite(col = 'A2', c(Q9, Q67), sep='') %>%
+  unite(col = 'A4', c(Q11, Q69), sep='') %>%
+  unite(col = 'B1', c(Q13, Q71), sep='') %>%
+  unite(col = 'B3', c(Q15, Q73), sep='') %>%
+  unite(col = 'B4', c(Q16, Q74), sep='') %>%
+  unite(col = 'B2', c(Q17, Q75), sep='') %>%
+  unite(col = 'C3', c(Q19, Q77), sep='') %>%
+  unite(col = 'C1', c(Q20, Q78), sep='') %>%
+  unite(col = 'C2', c(Q21, Q79), sep='') %>%
+  unite(col = 'C4', c(Q22, Q80), sep='') %>%
+  unite(col = 'D1', c(Q25, Q82), sep='') %>%
+  unite(col = 'D3', c(Q26, Q83), sep='') %>%
+  unite(col = 'D4', c(Q27, Q84), sep='') %>%
+  unite(col = 'D2', c(Q28, Q85), sep='') %>%
+  unite(col = 'E3', c(Q30, Q87), sep='') %>%
+  unite(col = 'E1', c(Q31, Q88), sep='') %>%
+  unite(col = 'E4', c(Q33, Q90), sep='') %>%
+  unite(col = 'E2', c(Q34, Q91), sep='') %>%
+  unite(col = 'F3', c(Q37, Q94), sep='') %>%
+  unite(col = 'F1', c(Q38, Q95), sep='') %>%
+  unite(col = 'F4', c(Q39, Q96), sep='') %>%
+  unite(col = 'F2', c(Q40, Q97), sep='') %>%
+  unite(col = 'G3', c(Q42, Q99), sep='') %>%
+  unite(col = 'G1', c(Q44, Q101), sep='') %>%
+  unite(col = 'G4', c(Q46, Q103), sep='') %>%
+  unite(col = 'G2', c(Q47, Q104), sep='') %>%
+  unite(col = 'I1', c(Q56, Q112), sep='') %>%
+  unite(col = 'I3', c(Q57, Q113), sep='') %>%
+  unite(col = 'I2', c(Q58, Q114), sep='') %>%
+  unite(col = 'I4', c(Q59, Q115), sep='') %>%
+  unite(col = 'A.Check', c(Q134, Q135), sep='') %>%
+  mutate(Progress = as.numeric(Progress))
+
+s1_questions <- data_s1[1,]
+data_s1 <- data_s1[-1,] %>% 
+  filter(Progress >= 99 & A.Check == '3')
+
+data_s1 <- data_s1 %>% dplyr::select(-c(Progress, Duration..in.seconds., Finished, A.Check, 39:ncol(data_s1) -1))
+data_s1 <- pivot_longer(data_s1, cols = c(A1:I4), names_to = 'Item', values_to = 'Rating')
+
+data_s1$intention <- assignIntention(data_s1$Item)
+data_s1$language <- assignLanguage_s1(data_s1$Item)
+data_s1 <- data_s1 %>%
+  mutate(subID = factor(subID),
+         condition = factor(condition),
+         Rating = 8-as.numeric(Rating),
+         intention = factor(intention),
+         language = factor(language),
+         scenario = assignScenario(Item)) %>%
+  rename(rating = Rating)
+```
+
+```{r study 1 demographics}
+s1_demographics <- read.csv('data/study_1/s1_trimmed_text.csv')
+s1_demographics <- s1_demographics[-1,] %>% 
+  mutate(Progress = as.numeric(Progress)) %>% 
+  unite(col = 'A.Check', c(Q134, Q135), sep='') %>%
+  filter(Progress >= 99 & A.Check == 'Somewhat agree') %>%
+  dplyr::select(subID, Q119, Q129, Q131, Duration..in.seconds.)
+s1_N = nrow(s1_demographics)
+
+s1_age_M = mean(as.numeric(s1_demographics$Q129), na.rm=T)
+s1_age_SD = sd(as.numeric(s1_demographics$Q129), na.rm=T)
+
+s1_demographics$male = ifelse(s1_demographics$Q119 == 'Man', 1, 0)
+s1_men_N = sum(s1_demographics$male)
+s1_men_percent = s1_men_N / s1_N * 100
+
+s1_demographics$white = ifelse(s1_demographics$Q131 == 'White/European', 1, 0)
+s1_white_N = sum(s1_demographics$white)
+s1_white_percent = s1_white_N / s1_N * 100
+
+s1_avg_duration <- mean(as.numeric(s1_demographics$Duration..in.seconds.)) / 60
+60 * .0658
+```
+
+```{study 1 analyses}
+# check if ratings differed by condition - they do not
+conditionCheck <- lmer(rating ~ condition + (1|subID) + (1|scenario), data=data_s1)
+summary(conditionCheck)
+
+# compute mean and SD for each item
+s1_item_stats <- data_s1 %>%
+  group_by(Item) %>%
+  summarise(mean = round(mean(rating),2),
+            SD = round(sd(rating), 2))
+write.csv(s1_item_stats, 's1_item_stats.csv', row.names = F)
+
+# test language*intention interaction
+model_s1 <- lmer(rating ~ intention*language + (1|subID) + (1|scenario),
+                 data = data_s1)
+summary(model_s1)
+
+tab_model(model_s1,
+          file = 'modelS1_summary.html',
+          show.se = T, show.icc = F, show.stat = T,
+          pred.labels = c('(Intercept)', 'Presumably Unintentional', '"Intentionally" Language', 'Interaction'),
+          strings = c(se = 'Standard Error', stat = 't value'))
+
+# plot
+ggplot(data_s1, aes(x=intention, y=rating, color=language, fill=language)) +
+  facet_grid(. ~ scenario) +
+  scale_x_discrete(labels=c('Intentional', 'Unintentional')) + 
+  scale_y_continuous(breaks = c(0,1,2,3,4,5,6,7)) +
+  stat_summary(fun = mean, geom = 'bar', position = position_dodge(1)) +
+  stat_summary(fun.data = mean_se, geom = 'errorbar', position = position_dodge(1), 
+               color='black', width = 0.5) +
+  geom_hline(yintercept = 4, linetype = 'dashed') +
+  scale_fill_manual(values = c('gray50', 'white')) + 
+  scale_color_manual(values = c('black', 'black')) + 
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 40, vjust = 0.9, hjust = 0.8),
+        text = element_text(size = 14, family = 'Times New Roman'), 
+        strip.background = element_rect(fill = 'gray90', color = 'gray90'),
+        strip.text = element_text(size = 16)) +
+  labs(y='Mean Judgment', x='Presumed Intentionality')
+ggsave('scenario_means_s1.png', height = 5)
+
+# compute & test language correlation
+s1_langCorr <- data_s1 %>% 
+  tidyr::pivot_wider(names_from = language, values_from = rating) %>%
+  mutate(scenario = assignScenario(Item)) %>% 
+  group_by(subID, scenario) %>%
+  summarise(intendedMean = mean(intended, na.rm=T),
+            intentionallyMean = mean(intentionally, na.rm=T)) 
+cor.test(s1_langCorr$intendedMean, s1_langCorr$intentionallyMean, method = 'pearson', use='complete.obs') 
+
+s1_scenarioCorr <- s1_langCorr %>%
+  group_by(scenario) %>%
+  summarise(languageCorr = round(cor(intendedMean, intentionallyMean), 2))
+write.csv(s1_scenarioCorr, 'scenario_language_correlations_s1.csv', row.names = F)
+```
+
+```{r study 2 load & tidy data}
+data_s2 <- read.csv('data/study_2/s2_trimmed.csv') %>%
+  dplyr::rename(Al2 = A3,
+         Al3 = A2,
+         Be2 = B4,
+         Be3 = B2,
+         Be4 = B3,
+         Ca1 = C2,
+         Ca2 = C3,
+         Ca3 = C1,
+         De3 = D2,
+         De4 = D3,
+         De2 = D4,
+         Ez1 = E2,
+         Ez2 = E4,
+         Ez3 = E1,
+         Ez4 = E3,
+         Fi1 = F2,
+         Fi2 = F4,
+         Fi3 = F1,
+         Fi4 = F3,
+         Gr1 = G2,
+         Gr2 = G4,
+         Gr3 = G1,
+         Gr4 = G3,
+         Iv2 = I3,
+         Iv3 = I2)
+         
+s2_questions <- data_s2[1,]
+data_s2 <- data_s2[-1,] %>%
+  filter(Bot.1 == '2' & Bot.2 == '4' & A.Check.1 == '3' & A.Check.2 == '3') %>%
+  dplyr::select(-c(Bot.1, Bot.2, A.Check.1, A.Check.2))
+
+data_s2 <- data_s2 %>% dplyr::select(-c(Duration..in.seconds., Finished, Q94, Q98, Q100)) 
+data_s2 <- pivot_longer(data_s2, cols = c(3:ncol(data_s2)), names_to = 'Item', values_to = 'Rating')
+
+data_s2$intention <- assignIntention(data_s2$Item)
+data_s2$language <- assignLanguage_s2(data_s2$Item)
+
+data_s2 <- data_s2 %>%
+  mutate(subID = factor(subID),
+         Rating = 8- as.numeric(Rating),
+         intention = factor(intention),
+         language = factor(language),
+         scenario = assignScenario(Item)) %>%
+  rename(rating = Rating)
+```
+
+```{r study 2 demographics}
+s2_demographics <- read.csv('data/study_2/s2_trimmed_text.csv')
+s2_demographics <- s2_demographics[-1,] %>% 
+  mutate(Progress = as.numeric(Progress)) %>% 
+  filter(Progress >= 98 & Bot.1 == 'Wednesday' & Bot.2 == 'May' & A.Check.1 == 'Somewhat agree' & A.Check.2 == 'Somewhat agree') %>%
+  dplyr::select(subID, Q94, Q98, Q100, Duration..in.seconds.)
+s2_N = nrow(s2_demographics)
+
+s2_age_M = mean(as.numeric(s2_demographics$Q98), na.rm=T)
+s2_age_SD = sd(as.numeric(s2_demographics$Q98), na.rm=T)
+
+s2_demographics$male = ifelse(s2_demographics$Q94 == 'Man', 1, 0)
+s2_men_N = sum(s2_demographics$male)
+s2_men_percent = s2_men_N / s2_N * 100
+
+s2_demographics$white = ifelse(s2_demographics$Q100 == 'White/European', 1, 0)
+s2_white_N = sum(s2_demographics$white)
+s2_white_percent = s2_white_N / s2_N * 100
+
+s2_avg_duration <- mean(as.numeric(s2_demographics$Duration..in.seconds.)) / 60
+.4507*60
+```
+
+```{r study 2 analyses}
+# compute mean and SD for each item
+s2_item_stats <- data_s2 %>%
+  group_by(Item) %>%
+  summarise(mean = round(mean(rating),2),
+            SD = round(sd(rating), 2))
+write.csv(s2_item_stats, 's2_item_stats.csv', row.names = F)
+
+# test language*intention interaction
+model_s2 <- lmer(rating ~ intention*language + (1|subID) + (1|scenario), data=data_s2)
+summary(model_s2)
+
+tab_model(model_s2,
+          file = 'modelS2_summary.html',
+          show.se = T, show.icc = F, show.stat = T,
+          pred.labels = c('(Intercept)', 'Presumably Unintentional', '"Intentionally" Language', 'Interaction'),
+          strings = c(se = 'Standard Error', stat = 't value'))
+
+# plot
+data_s2$language <- factor(data_s2$language, labels = c('had intention', 'intentionally'))
+ggplot(data_s2, aes(x=intention, y=rating, color=language, fill=language)) +
+  facet_grid(. ~ scenario) +
+  ylim(0,7) + 
+  scale_y_continuous(breaks = c(0,1,2,3,4,5,6,7)) +
+  scale_x_discrete(labels=c('Intentional', 'Unintentional')) + 
+  stat_summary(fun = mean, geom = 'bar', position = position_dodge(1)) +
+  stat_summary(fun.data = mean_se, geom = 'errorbar', position = position_dodge(1), 
+               color='black', width = 0.5) +
+  geom_hline(yintercept = 4, linetype = 'dashed') +
+  scale_fill_manual(values = c('gray50', 'white')) + 
+  scale_color_manual(values = c('black', 'black')) + 
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 40, vjust = 0.9, hjust = 0.8),
+        text = element_text(size = 14, family='Times New Roman'), 
+        strip.background = element_rect(fill = 'gray90', color = 'gray90'),
+        strip.text = element_text(size = 16)) +
+  labs(y=' Mean Judgment', x='Presumed Intentionality')
+ggsave('scenario_means_s2.png', height = 5)
+
+data_s2$language <- factor(data_s2$language, labels = c('had_intention', 'intentionally'))
+
+# compute & test language correlation
+s2_langCorr <- data_s2 %>% 
+  tidyr::pivot_wider(names_from = language, values_from = rating) %>%
+  mutate(scenario = assignScenario(Item)) %>% 
+  group_by(subID, scenario) %>%
+  summarise(intentionMean = mean(had_intention, na.rm=T),
+            intentionallyMean = mean(intentionally, na.rm=T)) 
+cor.test(s2_langCorr$intentionMean, s2_langCorr$intentionallyMean, method = 'pearson', use='complete.obs') 
+
+s2_scenarioCorr <- s2_langCorr %>%
+  group_by(scenario) %>%
+  summarise(langCorr = round(cor(intentionMean, intentionallyMean, use = 'complete.obs'), 2))
+write.csv(s2_langCorr, 'scenario_language_correlations_s2.csv', row.names = F)
+```
