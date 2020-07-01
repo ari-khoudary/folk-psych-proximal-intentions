@@ -198,19 +198,32 @@ s1_scenarioCorr <- s1_langCorr %>%
   summarise(languageCorr = round(cor(intendedMean, intentionallyMean), 2))
 write.csv(s1_scenarioCorr, 'scenario_language_correlations_s1.csv', row.names = F)
 
-## Compute ratings by intention/language
+# compute ratings by intention/language
 valence <- function(x) {
-    return(ifelse(x > 4, 1,
-           ifelse(x < 4, -1, 0)))
+    return(ifelse(x > 4, 'yes',
+           ifelse(x < 4, 'no', 'neutral')))
 }
 
-data_s1 %>%
-    pivot_wider(names_from='language', values_from='rating', id_cols=-c('Item')) %>%
-    mutate(intended=valence(intended),
-           intentionally=valence(intentionally)) %>%
-    ungroup %>%
-    select(intended, intentionally, scenario) %>%
-    table / 394
+s1_percents <- data_s1 %>%
+  pivot_wider(names_from='language', values_from='rating', id_cols=-c('Item')) %>%
+  mutate(intended=valence(intended),
+          intentionally=valence(intentionally)) %>%
+  ungroup %>%
+  select(intended, intentionally, scenario) %>%
+  filter(intended != 'neutral', intentionally != 'neutral') %>%
+  table / (s1_N*2) * 100 
+s1_percents <- round(s1_percents, 2)
+write.table(s1_percents, file='s1_percents.csv', quote = F, row.names = F, sep = ',')
+
+s1_percents_with_neutral <- data_s1 %>%
+  pivot_wider(names_from='language', values_from='rating', id_cols=-c('Item')) %>%
+  mutate(intended=valence(intended),
+          intentionally=valence(intentionally)) %>%
+  ungroup %>%
+  select(intended, intentionally, scenario) %>%
+  table / (s1_N*2) * 100 
+s1_percents_with_neutral <- round(s1_percents_with_neutral, 2)
+write.table(s1_percents_with_neutral, file='s1_percents_with_neutral.csv', quote = F, row.names = F, sep = ',')
 ```
 
 ```{r study 2 load & tidy data}
@@ -338,4 +351,26 @@ s2_scenarioCorr <- s2_langCorr %>%
   group_by(scenario) %>%
   summarise(langCorr = round(cor(intentionMean, intentionallyMean, use = 'complete.obs'), 2))
 write.csv(s2_langCorr, 'scenario_language_correlations_s2.csv', row.names = F)
+
+# compute ratings by intention/language
+s2_percents <- data_s2 %>%
+  pivot_wider(names_from='language', values_from='rating', id_cols=-c('Item')) %>%
+  mutate(had_intention=valence(had_intention),
+          intentionally=valence(intentionally)) %>%
+  ungroup %>%
+  select(had_intention, intentionally, scenario) %>%
+  filter(had_intention != 'neutral', intentionally != 'neutral') %>%
+  table / (s2_N*2) * 100 
+s2_percents <- round(s2_percents, 2)
+write.table(s2_percents, file='s2_percents.csv', quote = F, row.names = F, sep = ',')
+
+s2_percents_with_neutral <- data_s2 %>%
+  pivot_wider(names_from='language', values_from='rating', id_cols=-c('Item')) %>%
+  mutate(had_intention=valence(had_intention),
+          intentionally=valence(intentionally)) %>%
+  ungroup %>%
+  select(had_intention, intentionally, scenario) %>%
+  table / (s2_N*2) * 100 
+s2_percents_with_neutral <- round(s2_percents_with_neutral, 2)
+write.table(s2_percents_with_neutral, file='s2_percents_with_neutral.csv', quote = F, row.names = F, sep = ',')
 ```
