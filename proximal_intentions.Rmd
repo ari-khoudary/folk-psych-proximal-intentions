@@ -97,7 +97,7 @@ data_s1 <- data_s1_all %>%
   unite(col = 'I2', c(Q58, Q114), sep='') %>%
   unite(col = 'I4', c(Q59, Q115), sep='') %>%
   unite(col = 'A.Check', c(Q134, Q135), sep='') %>%
-  mutate(Progress = as.numeric(Progress))
+  mutate(Progress = as.numeric(as.character(Progress)))
 
 s1_questions <- data_s1[1,]
 data_s1 <- data_s1[-1,] %>% 
@@ -142,7 +142,7 @@ s1_avg_duration <- mean(as.numeric(s1_demographics$Duration..in.seconds.)) / 60
 60 * .0658
 ```
 
-```{study 1 analyses}
+```{r study 1 analyses}
 # check if ratings differed by condition - they do not
 conditionCheck <- lmer(rating ~ condition + (1|subID) + (1|scenario), data=data_s1)
 summary(conditionCheck)
@@ -197,6 +197,20 @@ s1_scenarioCorr <- s1_langCorr %>%
   group_by(scenario) %>%
   summarise(languageCorr = round(cor(intendedMean, intentionallyMean), 2))
 write.csv(s1_scenarioCorr, 'scenario_language_correlations_s1.csv', row.names = F)
+
+## Compute ratings by intention/language
+valence <- function(x) {
+    return(ifelse(x > 4, 1,
+           ifelse(x < 4, -1, 0)))
+}
+
+data_s1 %>%
+    pivot_wider(names_from='language', values_from='rating', id_cols=-c('Item')) %>%
+    mutate(intended=valence(intended),
+           intentionally=valence(intentionally)) %>%
+    ungroup %>%
+    select(intended, intentionally, scenario) %>%
+    table / 394
 ```
 
 ```{r study 2 load & tidy data}
