@@ -19,8 +19,8 @@ library(sjPlot)
 assignIntention <- function(x) {
   ifelse(grepl('1', x), 'I',
   ifelse(grepl('2', x), 'I',
-  ifelse(grepl('3', x), 'U',
-  ifelse(grepl('4', x), 'U', NA))))
+  ifelse(grepl('3', x), 'N',
+  ifelse(grepl('4', x), 'N', NA))))
 }
 
 assignLanguage_s1 <- function(x) {
@@ -42,19 +42,24 @@ assignScenario <- function(x) {
   ifelse(grepl('B', x), 'Beth',
   ifelse(grepl('C', x), 'Carlos',
   ifelse(grepl('D', x), 'Debby',
-  ifelse(grepl('E', x), 'Evan',
+  ifelse(grepl('E', x), 'Ezra',
   ifelse(grepl('F', x), 'Filomena',
   ifelse(grepl('G', x), 'Greg',
   ifelse(grepl('I', x), 'Ivan', NA))))))))
 }
 
 assignBin <- function(df) {
-  ifelse(df$rating == 1, 'Yes',
-  ifelse(df$rating==2, 'Yes', 
-  ifelse(df$rating==3, 'Yes',
-  ifelse(df$rating==5, 'No',
-  ifelse(df$rating==6, 'No',
-  ifelse(df$rating==7, 'No', NA))))))
+  ifelse(df$rating == 1, 'No',
+  ifelse(df$rating==2, 'No', 
+  ifelse(df$rating==3, 'No',
+  ifelse(df$rating==5, 'Yes',
+  ifelse(df$rating==6, 'Yes',
+  ifelse(df$rating==7, 'Yes', NA))))))
+}
+
+valence <- function(x) {
+    return(ifelse(x > 4, 'yes',
+           ifelse(x < 4, 'no', 'neutral')))
 }
 ```
 
@@ -165,10 +170,10 @@ tab_model(model_s1,
           pred.labels = c('(Intercept)', 'Presumably Unintentional', '"Intentionally" Language', 'Interaction'),
           strings = c(se = 'Standard Error', stat = 't value'))
 
-# plot
+# plot means
 ggplot(data_s1, aes(x=intention, y=rating, color=language, fill=language)) +
   facet_grid(. ~ scenario) +
-  scale_x_discrete(labels=c('Intentional', 'Unintentional')) + 
+  scale_x_discrete(labels=c('Intentional', 'Not Intentional')) + 
   scale_y_continuous(breaks = c(0,1,2,3,4,5,6,7)) +
   stat_summary(fun = mean, geom = 'bar', position = position_dodge(1)) +
   stat_summary(fun.data = mean_se, geom = 'errorbar', position = position_dodge(1), 
@@ -183,6 +188,22 @@ ggplot(data_s1, aes(x=intention, y=rating, color=language, fill=language)) +
         strip.text = element_text(size = 16)) +
   labs(y='Mean Judgment', x='Presumed Intentionality')
 ggsave('scenario_means_s1.png', height = 5)
+
+# plot individual responses
+ggplot(data_s1, aes(x=intention, y=rating, color=language, fill=language)) +
+  facet_grid(. ~ scenario) +
+  scale_x_discrete(labels=c('Intentional', 'Not Intentional')) + 
+  scale_y_continuous(breaks = c(0,1,2,3,4,5,6,7)) +
+  geom_jitter(color='gray25',shape=21, size=2, height = 0.2, width=0.25) +
+  scale_fill_manual(values = c('gray50', 'white')) + 
+  scale_color_manual(values = c('black', 'black')) +
+  geom_hline(yintercept = 4) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 25, vjust = 0.9, hjust = 0.8),
+        text = element_text(size = 14, family = 'Times New Roman'), 
+        strip.background = element_rect(fill = 'gray90', color = 'gray90'),
+        strip.text = element_text(size = 16)) 
+ggsave('jitter_s1.png')
 
 # compute & test language correlation
 s1_langCorr <- data_s1 %>% 
@@ -199,11 +220,6 @@ s1_scenarioCorr <- s1_langCorr %>%
 write.csv(s1_scenarioCorr, 'scenario_language_correlations_s1.csv', row.names = F)
 
 # compute ratings by intention/language
-valence <- function(x) {
-    return(ifelse(x > 4, 'yes',
-           ifelse(x < 4, 'no', 'neutral')))
-}
-
 s1_percents <- data_s1 %>%
   pivot_wider(names_from='language', values_from='rating', id_cols=-c('Item')) %>%
   mutate(intended=valence(intended),
@@ -315,6 +331,16 @@ tab_model(model_s2,
           pred.labels = c('(Intercept)', 'Presumably Unintentional', '"Intentionally" Language', 'Interaction'),
           strings = c(se = 'Standard Error', stat = 't value'))
 
+# percent crossing midpoint for each condition
+## get n of scenarios --> 231
+data_s2 %>% group_by(intention, scenario, language) %>% tally()
+
+s2_percent <- data_s2 %>%
+  group_by(scenario, intention, language) %>% 
+  tally(rating > 4, name = 'n_ratings_above_midpoint',) %>%
+  mutate(percent_ratings_above_midpoint = round(n_ratings_above_midpoint/231 ,2))
+write.csv(s2_percent, 'percents_s2.csv', row.names = F)
+
 # plot
 data_s2$language <- factor(data_s2$language, labels = c('had intention', 'intentionally'))
 ggplot(data_s2, aes(x=intention, y=rating, color=language, fill=language)) +
@@ -335,6 +361,20 @@ ggplot(data_s2, aes(x=intention, y=rating, color=language, fill=language)) +
         strip.text = element_text(size = 16)) +
   labs(y=' Mean Judgment', x='Presumed Intentionality')
 ggsave('scenario_means_s2.png', height = 5)
+
+ggplot(data_s1, aes(x=intention, y=rating, color=language, fill=language)) +
+  facet_grid(. ~ scenario) +
+  scale_x_discrete(labels=c('Intentional', 'Not Intentional')) + 
+  scale_y_continuous(breaks = c(0,1,2,3,4,5,6,7)) +
+  geom_jitter(color='gray25', shape=21, size=1.5, height = 0.2, width=0.25) +
+  scale_fill_manual(values = c('gray50', 'white')) + 
+  geom_hline(yintercept = 4) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 25, vjust = 0.9, hjust = 0.8),
+        text = element_text(size = 14, family = 'Times New Roman'), 
+        strip.background = element_rect(fill = 'gray90', color = 'gray90'),
+        strip.text = element_text(size = 16)) 
+ggsave('jitter_s2.png')
 
 data_s2$language <- factor(data_s2$language, labels = c('had_intention', 'intentionally'))
 
