@@ -2,8 +2,6 @@
 
 Mele, Nadelhoffer, and Khoudary (2021) Folk psychology and proximal intentions. *Philosophical Psychology*, DOI: [10.1080/09515089.2021.1915471](https://www.tandfonline.com/action/showCitFormats?doi=10.1080%2F09515089.2021.1915471&area=0000000000000001). Supplemental materials: https://osf.io/vyjrf/ 
 
-<br>
-
 ## How to use this repo
 All of the code for tidying the data, running the analyses, and plotting the results is contained in `proximal_intentions.Rmd`. Data for each study is contained in a subdirectory of `data`. 
 
